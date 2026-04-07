@@ -18,7 +18,7 @@ var icon []byte
 func main() {
     app := NewApp()
     err := wails.Run(&options.App{
-        Title:     "Image Gallery Viewer",
+        Title:     "goParquet",
         Width:     1280,
         Height:    900,
         MinWidth:  900,

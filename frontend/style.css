@@ -40,6 +40,19 @@ html, body { height: 100%; font-family: var(--font); background: var(--nord0); c
   flex: 1; overflow-y: auto; padding: 20px 24px;
 }
 
+/* Header & Logo */
+.header-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.app-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
 /* Sidebar headings */
 .sidebar-section-title {
   color: var(--nord8); font-size: 0.78rem; text-transform: uppercase;

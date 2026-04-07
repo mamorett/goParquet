@@ -85,11 +85,14 @@ function renderLayout() {
     </div>
     <div id="resizer"></div>
     <div id="main">
-      <h1 class="page-title">🖼️ Image Gallery Viewer</h1>
+      <div class="header-container">
+        <img src="/logo.png" class="app-logo" alt="goParquet Logo" />
+        <h1 class="page-title">goParquet</h1>
+      </div>
       <p class="page-subtitle">Browse · Search · Edit · Export — AI prompt database viewer</p>
       <div id="gallery"></div>
       <div id="pagination"></div>
-      <footer>Image Gallery Viewer &nbsp;·&nbsp; Wails &nbsp;·&nbsp; Parquet</footer>
+      <footer>goParquet &nbsp;·&nbsp; Wails &nbsp;·&nbsp; Parquet</footer>
     </div>
   `;
 }
