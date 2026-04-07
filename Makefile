@@ -1,32 +1,21 @@
-# Makefile for goParquet Wails application
+# Makefile for goParquet
 
-# To build for macOS from Linux, you may need a cross-compiler like osxcross installed.
-# Make sure the 'wails' CLI is available in your PATH.
+# Detect host OS and Architecture
+OS := $(shell go env GOOS)
+ARCH := $(shell go env GOARCH)
+PLATFORM := $(OS)/$(ARCH)
 
-.PHONY: all linux-amd64 linux-arm64 macos-arm64 build-all clean
+.PHONY: build clean
 
-# Build all requested platforms sequentially
-all: linux-amd64 linux-arm64 macos-arm64
-
-# Build for Linux (AMD64)
-linux-amd64:
-	@echo "Building for Linux (amd64)..."
-	wails build -platform linux/amd64 -clean -tags webkit2_41
-
-# Build for Linux (ARM64)
-linux-arm64:
-	@echo "Building for Linux (arm64)..."
-	wails build -platform linux/arm64 -clean -tags webkit2_41
-
-# Build for macOS (Apple Silicon / ARM64)
-macos-arm64:
-	@echo "Building for macOS (arm64)..."
-	wails build -platform darwin/arm64 -clean
-
-# Build all platforms at once using the Wails built-in comma-separated platform list
-build-all:
-	@echo "Building for all platforms at once..."
-	wails build -platform linux/amd64,linux/arm64,darwin/arm64 -clean -tags webkit2_41
+# Default target builds for the local host platform only
+build:
+	@echo "Detected host: $(PLATFORM)"
+	@echo "Building for $(PLATFORM)..."
+	@if [ "$(OS)" = "linux" ]; then \
+		wails build -platform $(PLATFORM) -clean -tags webkit2_41; \
+	else \
+		wails build -platform $(PLATFORM) -clean; \
+	fi
 
 # Clean the build output directory
 clean:

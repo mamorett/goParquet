@@ -1,0 +1,72 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux/amd64
+            args: "-tags webkit2_41"
+          - os: ubuntu-latest
+            platform: linux/arm64
+            args: "-tags webkit2_41"
+          - os: macos-latest
+            platform: darwin/arm64
+            args: ""
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          check-latest: true
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config
+          if [ "${{ matrix.platform }}" = "linux/arm64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          fi
+
+      - name: Build Application
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "linux/arm64" ]; then
+            export GOOS=linux
+            export GOARCH=arm64
+            export CGO_ENABLED=1
+            export CC=aarch64-linux-gnu-gcc
+            wails build -platform ${{ matrix.platform }} -clean ${{ matrix.args }}
+          else
+            wails build -platform ${{ matrix.platform }} -clean ${{ matrix.args }}
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: goParquet-${{ matrix.platform }}
+          path: build/bin/*
