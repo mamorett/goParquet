@@ -3,7 +3,10 @@ name: Build and Release
 on:
   release:
     types: [published, created]
-  workflow_dispatch: # Allows manual triggering if needed
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -17,7 +20,7 @@ jobs:
           - os: ubuntu-latest
             platform: linux/arm64
             name: linux-arm64
-            args: "-tags webkit2_41"
+            args: "-tags webkit2_41 -docker"
           - os: macos-latest
             platform: darwin/arm64
             name: darwin-arm64
@@ -32,7 +35,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.22'
           check-latest: true
 
       - name: Install Wails CLI
@@ -44,13 +47,10 @@ jobs:
           node-version: 20
 
       - name: Install Linux Dependencies
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.platform == 'linux/amd64'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config
-          if [ "${{ matrix.platform }}" = "linux/arm64" ]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu
-          fi
 
       - name: Fix Rollup on macOS
         if: runner.os == 'macOS'
@@ -59,15 +59,7 @@ jobs:
       - name: Build Application
         shell: bash
         run: |
-          if [ "${{ matrix.platform }}" = "linux/arm64" ]; then
-            export GOOS=linux
-            export GOARCH=arm64
-            export CGO_ENABLED=1
-            export CC=aarch64-linux-gnu-gcc
-            wails build -platform ${{ matrix.platform }} -clean ${{ matrix.args }}
-          else
-            wails build -platform ${{ matrix.platform }} -clean ${{ matrix.args }}
-          fi
+          wails build -platform ${{ matrix.platform }} -clean ${{ matrix.args }}
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
