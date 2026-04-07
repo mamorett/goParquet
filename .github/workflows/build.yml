@@ -67,12 +67,20 @@ jobs:
         shell: bash
         run: |
           wails build -platform ${{ matrix.platform }} -clean ${{ matrix.args }}
+          # Rename the binary to include the platform name to prevent overwriting in releases
+          cd build/bin
+          # Handle potential .app or folder output on macOS vs single binary on Linux
+          if [ -f "goParquet" ]; then
+            mv goParquet goParquet-${{ matrix.name }}
+          elif [ -d "goParquet.app" ]; then
+            zip -r goParquet-${{ matrix.name }}.zip goParquet.app
+          fi
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release'
         with:
-          files: build/bin/*
+          files: build/bin/goParquet-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -80,4 +88,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: goParquet-${{ matrix.name }}
-          path: build/bin/*
+          path: build/bin/goParquet-*
