@@ -32,3 +32,5 @@ go.work.sum
 # .vscode/
 *.parquet
 build/bin/goParquet
+frontend/node_modules/
+frontend/dist/
