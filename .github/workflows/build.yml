@@ -2,7 +2,7 @@ name: Build and Release
 
 on:
   release:
-    types: [published]
+    types: [published, created]
   workflow_dispatch: # Allows manual triggering if needed
 
 jobs:
@@ -12,12 +12,15 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux/amd64
+            name: linux-amd64
             args: "-tags webkit2_41"
           - os: ubuntu-latest
             platform: linux/arm64
+            name: linux-arm64
             args: "-tags webkit2_41"
           - os: macos-latest
             platform: darwin/arm64
+            name: darwin-arm64
             args: ""
 
     runs-on: ${{ matrix.os }}
@@ -77,5 +80,5 @@ jobs:
       - name: Upload Artifact (Backup)
         uses: actions/upload-artifact@v4
         with:
-          name: goParquet-${{ matrix.platform | replace('/', '-') }}
+          name: goParquet-${{ matrix.name }}
           path: build/bin/*
