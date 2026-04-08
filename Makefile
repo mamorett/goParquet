@@ -16,7 +16,11 @@ build: frontend
 	@echo "Detected platform: $(PLATFORM)"
 	@echo "Building for $(PLATFORM)..."
 	@if [ "$(OS)" = "linux" ] || [ "$(findstring linux,$(PLATFORM))" != "" ]; then \
-		wails build -platform $(PLATFORM) -clean -tags webkit2_41 $(TAGS); \
+		if echo "$(TAGS)" | grep -q "webkit2_41"; then \
+			wails build -platform $(PLATFORM) -clean $(TAGS); \
+		else \
+			wails build -platform $(PLATFORM) -clean -tags webkit2_41 $(TAGS); \
+		fi \
 	else \
 		wails build -platform $(PLATFORM) -clean $(TAGS); \
 	fi
