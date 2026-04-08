@@ -34,3 +34,4 @@ go.work.sum
 build/bin/goParquet
 frontend/node_modules/
 frontend/dist/
+plans/

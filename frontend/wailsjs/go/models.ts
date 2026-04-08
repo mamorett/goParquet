@@ -119,6 +119,7 @@ export namespace main {
 	    current_page: number;
 	    all_subdirs: string[];
 	    all_prompts: string[];
+	    search_error: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new PageResult(source);
@@ -132,6 +133,7 @@ export namespace main {
 	        this.current_page = source["current_page"];
 	        this.all_subdirs = source["all_subdirs"];
 	        this.all_prompts = source["all_prompts"];
+	        this.search_error = source["search_error"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

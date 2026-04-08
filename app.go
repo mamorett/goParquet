@@ -76,6 +76,7 @@ type PageResult struct {
 	CurrentPage int      `json:"current_page"`
 	AllSubdirs  []string `json:"all_subdirs"`
 	AllPrompts  []string `json:"all_prompts"`
+	SearchError string   `json:"search_error"`
 }
 
 type App struct {
@@ -182,20 +183,28 @@ func (a *App) LoadDatabase(path string) string {
 				}
 				colName := schema.Fields()[val.Column()].Name()
 				v := val.String()
+				// Unescape literal escapes if they exist as two characters
+				v = strings.ReplaceAll(v, "\\n", "\n")
+				v = strings.ReplaceAll(v, "\\r", "\r")
+				v = strings.ReplaceAll(v, "\\t", "\t")
+				// Normalize line endings
+				v = strings.ReplaceAll(v, "\r\n", "\n")
+				v = strings.ReplaceAll(v, "\r", "\n")
+
 				switch colName {
 				case "image_path":
-					entry.ImagePath = string(v)
+					entry.ImagePath = v
 				case "prompt":
-					entry.Prompt = string(v)
+					entry.Prompt = v
 				case "description":
-					entry.Description = string(v)
+					entry.Description = v
 				case "created_at":
-					t := parseTimeSafe(string(v))
+					t := parseTimeSafe(v)
 					if !t.IsZero() {
 						entry.CreatedAt = t.Format(time.RFC3339)
 					}
 				case "modified_at":
-					t := parseTimeSafe(string(v))
+					t := parseTimeSafe(v)
 					if !t.IsZero() {
 						entry.ModifiedAt = t.Format(time.RFC3339)
 					}
@@ -376,6 +385,17 @@ func (a *App) GetPage(params FilterParams) PageResult {
 	sq := strings.ToLower(params.SearchQuery)
 	subq := strings.ToLower(params.SubdirQuery)
 
+	var searchNode SearchNode
+	var searchErr error
+	if sq != "" {
+		searchNode, searchErr = ParseSearchQuery(params.SearchQuery)
+		if searchErr != nil {
+			return PageResult{
+				SearchError: searchErr.Error(),
+			}
+		}
+	}
+
 	for _, e := range a.entries {
 		// 1. Existence filter
 		if params.ExistenceFilter == "found" || params.ExistenceFilter == "missing" {
@@ -417,33 +437,10 @@ func (a *App) GetPage(params FilterParams) PageResult {
 		}
 
 		// 5. Search
-		if sq != "" {
-			desc := strings.ToLower(e.Description)
-			fname := strings.ToLower(filepath.Base(e.ImagePath))
-			fpath := strings.ToLower(filepath.ToSlash(e.ImagePath))
-			prompt := strings.ToLower(e.Prompt)
-
-			switch params.SearchIn {
-			case "filename_or_prompt":
-				if !strings.Contains(fname, sq) && !strings.Contains(desc, sq) && !strings.Contains(prompt, sq) {
-					continue
-				}
-			case "prompt":
-				if !strings.Contains(desc, sq) {
-					continue
-				}
-			case "filename":
-				if !strings.Contains(fname, sq) {
-					continue
-				}
-			case "full_path":
-				if !strings.Contains(fpath, sq) {
-					continue
-				}
-			case "all":
-				if !strings.Contains(desc, sq) && !strings.Contains(fpath, sq) {
-					continue
-				}
+		if searchNode != nil {
+			fields := getSearchFields(e, params.SearchIn)
+			if !searchNode.Match(fields) {
+				continue
 			}
 		}
 
@@ -707,3 +704,26 @@ func (a *App) SaveTextFile(filename string, content string) string {
 	}
 	return ""
 }
+
+func getSearchFields(entry Entry, searchIn string) []string {
+	desc := strings.ToLower(entry.Description)
+	fname := strings.ToLower(filepath.Base(entry.ImagePath))
+	fpath := strings.ToLower(filepath.ToSlash(entry.ImagePath))
+	prompt := strings.ToLower(entry.Prompt)
+
+	switch searchIn {
+	case "filename_or_prompt":
+	return []string{fname, desc, prompt}
+	case "prompt":
+	return []string{prompt}
+	case "filename":
+	return []string{fname}
+	case "full_path":
+	return []string{fpath}
+	case "all":
+	return []string{desc, fpath, prompt}
+	default:
+	return []string{fname, desc, prompt}
+	}
+	}
+

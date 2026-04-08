@@ -76,7 +76,7 @@ function renderLayout() {
       <label class="page-slider-label">Subdirectory Filter</label>
       <div id="subdir-multiselect" class="multi-select-container"></div>
       <input type="text" id="subdir-query" placeholder="Subdirectory query..." style="margin-top:6px;"/>
-      <div style="margin-top:10px; font-size:0.86rem; color: var(--nord5);">
+      <div style="margin-top:10px; font-size:0.90rem; color: var(--nord5);">
         <label><input type="radio" name="existence" value="all" checked> All</label><br>
         <label><input type="radio" name="existence" value="found"> Found Only</label><br>
         <label><input type="radio" name="existence" value="missing"> Missing Only</label>
@@ -98,7 +98,10 @@ function renderLayout() {
         <option value="modified_asc">Modified (Oldest First)</option>
       </select>
       <hr class="divider" />
-      <div class="sidebar-section-title">Search</div>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+        <span class="sidebar-section-title" style="margin-bottom:0;">Search</span>
+        <span id="search-help" title="Click for help" style="cursor: pointer; opacity: 0.6; font-size: 14px;">ℹ️</span>
+      </div>
       <select id="search-in" style="margin-bottom:6px;">
         <option value="filename_or_prompt">Filename OR Prompt</option>
         <option value="prompt">Prompt Only</option>
@@ -106,7 +109,9 @@ function renderLayout() {
         <option value="full_path">Full Path</option>
         <option value="all">All</option>
       </select>
-      <input type="text" id="search-query" placeholder="Search..." />
+      <input type="text" id="search-query" placeholder="Search... (+ AND OR NOT /regex/)" />
+      <div id="search-result-count" class="caption" style="margin-top:4px; font-size:11px;"></div>
+      <div id="search-error" class="banner error" style="display:none; margin-top:8px; font-size:12px; padding:6px;"></div>
     </div>
     <div id="resizer"></div>
     <div id="main">
@@ -178,13 +183,29 @@ function bindSidebarEvents() {
     state.params.search_in = e.target.value;
     triggerFetch();
   });
-
   document.getElementById('search-query').addEventListener('input', debounce((e) => {
     state.params.search_query = e.target.value;
-    triggerFetch();
+    state.params.page = 1;
+    fetchPage();
   }, 300));
 
+  document.getElementById('search-help').addEventListener('click', () => {
+    alert(`Search Query Syntax:
+- word : Simple substring match
+- word1 + word2 : BOTH must match (AND)
+- word1 AND word2 : BOTH must match (AND)
+- word1 OR word2 : EITHER must match (OR)
+- -word or NOT word : EXCLUDE (NOT)
+- "exact phrase" : Match entire phrase
+- /regex/ : Regular expression match
+- (expr) : Parentheses for grouping
+
+Note: Operators AND, OR, NOT must be uppercase.
+Mixed example: (cat OR dog) + fish`);
+  });
+
   document.addEventListener('click', (e) => {
+
     document.querySelectorAll('.multi-select-dropdown').forEach(dd => {
       if (!dd.parentElement.contains(e.target)) dd.classList.remove('open');
     });
@@ -258,10 +279,25 @@ async function refreshStats() {
 }
 
 async function fetchPage() {
+  const errContainer = document.getElementById('search-error');
+  const countContainer = document.getElementById('search-result-count');
+
+  errContainer.style.display = 'none';
+  errContainer.innerText = '';
+  countContainer.innerText = '';
+
   state.result = await window.go.main.App.GetPage(state.params);
+
+  if (state.result.search_error) {
+    errContainer.innerText = state.result.search_error;
+    errContainer.style.display = 'block';
+  } else if (state.params.search_query.trim() !== "") {
+    countContainer.innerText = `${state.result.total_items} result${state.result.total_items === 1 ? '' : 's'} found`;
+  }
+
   state.allSubdirs = state.result.all_subdirs || [];
   state.allPrompts = state.result.all_prompts || [];
-  
+
   renderMultiSelect('subdir-multiselect', state.allSubdirs, state.params.selected_subdirs, 'Subdirectories', (selected) => {
     state.params.selected_subdirs = selected;
     state.params.page = 1;
@@ -340,9 +376,9 @@ async function renderGallery() {
     card.appendChild(rightCol);
 
     const basename = entry.image_path.split(/[\\/]/).pop();
-    
-    let rightHtml = `<div class="filename-box">🖼️ ${basename}</div>`;
-    
+
+    let rightHtml = `<div class="filename-box">🖼️ ${escapeHtml(basename)}</div>`;
+
     const dates = [];
     if (entry.created_at) {
       const d = new Date(entry.created_at);
@@ -355,11 +391,14 @@ async function renderGallery() {
     if (dates.length > 0) rightHtml += `<div class="timestamp-box">${dates.join(' · ')}</div>`;
 
     rightHtml += `<div class="image-meta-box last" id="meta-${i}">Loading meta...</div>`;
-    rightHtml += `<div class="prompt-label">Prompt: ${entry.prompt || 'N/A'}</div>`;
+
+    if (entry.prompt && entry.prompt.trim() !== "") {
+      rightHtml += `<div class="prompt-label">Prompt: ${escapeHtml(entry.prompt)}</div>`;
+    }
 
     if (state.editingIndex === i) {
       rightHtml += `
-        <textarea class="edit-area" id="edit-area-${i}">${entry.description}</textarea>
+        <textarea class="edit-area" id="edit-area-${i}">${escapeHtml(entry.description)}</textarea>
         <div class="edit-btn-row">
           <button class="primary" id="save-btn-${i}">💾 Save</button>
           <button id="cancel-btn-${i}">❌ Cancel</button>
@@ -377,8 +416,8 @@ async function renderGallery() {
         </div>
       `;
     }
-    
-    rightHtml += `<div class="caption">📝 ${entry.description ? entry.description.length : 0} characters | Full path: ${entry.image_path}</div>`;
+
+    rightHtml += `<div class="caption">📝 ${entry.description ? entry.description.length : 0} characters | Full path: ${escapeHtml(entry.image_path)}</div>`;
     rightCol.innerHTML = rightHtml;
 
     if (state.editingIndex === i) {
@@ -442,10 +481,10 @@ function renderPagination() {
     pag.innerHTML = '';
     return;
   }
-  
+
   const p = state.result.current_page;
   const t = state.result.total_pages;
-  
+
   pag.innerHTML = `
     <div class="page-btn-row">
       <button id="pg-first" ${p <= 1 ? 'disabled' : ''}>⏮️ First</button>
@@ -488,7 +527,7 @@ function escapeHtml(unsafe) {
 
 function debounce(func, wait) {
   let timeout;
-  return function(...args) {
+  return function (...args) {
     clearTimeout(timeout);
     timeout = setTimeout(() => func.apply(this, args), wait);
   };
