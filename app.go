@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"image"
 	_ "image/gif"
@@ -84,6 +85,50 @@ type App struct {
 	mu      sync.RWMutex
 }
 
+type Config struct {
+	LastDatabasePath string `json:"last_database_path"`
+	WindowWidth      int    `json:"window_width"`
+	WindowHeight     int    `json:"window_height"`
+	SidebarWidth     int    `json:"sidebar_width"`
+}
+
+func (a *App) getConfigPath() string {
+	home, _ := os.UserHomeDir()
+	dir := filepath.Join(home, ".goparquet")
+	_ = os.MkdirAll(dir, 0755)
+	return filepath.Join(dir, "config.json")
+}
+
+func (a *App) saveConfig(cfg Config) {
+	data, _ := json.Marshal(cfg)
+	_ = os.WriteFile(a.getConfigPath(), data, 0644)
+}
+
+func (a *App) GetConfig() Config {
+	data, err := os.ReadFile(a.getConfigPath())
+	if err != nil {
+		return Config{WindowWidth: 1280, WindowHeight: 900, SidebarWidth: 280}
+	}
+	var cfg Config
+	_ = json.Unmarshal(data, &cfg)
+	if cfg.WindowWidth <= 0 { cfg.WindowWidth = 1280 }
+	if cfg.WindowHeight <= 0 { cfg.WindowHeight = 900 }
+	if cfg.SidebarWidth <= 0 { cfg.SidebarWidth = 280 }
+	return cfg
+}
+
+func (a *App) SaveWindowState(width, height, sidebarWidth int) {
+	cfg := a.GetConfig()
+	cfg.WindowWidth = width
+	cfg.WindowHeight = height
+	cfg.SidebarWidth = sidebarWidth
+	a.saveConfig(cfg)
+}
+
+func (a *App) GetLastDatabasePath() string {
+	return a.GetConfig().LastDatabasePath
+}
+
 func NewApp() *App { return &App{} }
 
 func (a *App) startup(ctx context.Context) {
@@ -145,9 +190,15 @@ func (a *App) LoadDatabase(path string) string {
 				case "description":
 					entry.Description = string(v)
 				case "created_at":
-					entry.CreatedAt = string(v)
+					t := parseTimeSafe(string(v))
+					if !t.IsZero() {
+						entry.CreatedAt = t.Format(time.RFC3339)
+					}
 				case "modified_at":
-					entry.ModifiedAt = string(v)
+					t := parseTimeSafe(string(v))
+					if !t.IsZero() {
+						entry.ModifiedAt = t.Format(time.RFC3339)
+					}
 				}
 			}
 			newEntries = append(newEntries, entry)
@@ -157,6 +208,9 @@ func (a *App) LoadDatabase(path string) string {
 
 	a.entries = newEntries
 	a.dbPath = path
+	cfg := a.GetConfig()
+	cfg.LastDatabasePath = path
+	a.saveConfig(cfg)
 	return ""
 }
 
@@ -270,13 +324,35 @@ func parseTimeSafe(s string) time.Time {
 	if s == "" || s == "<null>" {
 		return time.Time{}
 	}
-	t, err := time.Parse(time.RFC3339, s)
-	if err == nil {
-		return t
+	// Try common layouts
+	layouts := []string{
+		time.RFC3339,
+		"2006-01-02 15:04:05",
+		"2006-01-02T15:04:05",
+		"2006-01-02",
 	}
-	// try unix nanos
-	if nanos, err := strconv.ParseInt(s, 10, 64); err == nil {
-		return time.Unix(0, nanos)
+	for _, l := range layouts {
+		if t, err := time.Parse(l, s); err == nil {
+			return t
+		}
+	}
+
+	// try numeric
+	if n, err := strconv.ParseInt(s, 10, 64); err == nil {
+		if n <= 0 {
+			return time.Time{}
+		}
+		// heuristic for seconds, ms, micros, nanos
+		switch {
+		case n > 1e16: // nanos
+			return time.Unix(0, n)
+		case n > 1e14: // micros
+			return time.Unix(0, n*1000)
+		case n > 1e11: // ms
+			return time.Unix(0, n*1000000)
+		default: // seconds
+			return time.Unix(n, 0)
+		}
 	}
 	return time.Time{}
 }

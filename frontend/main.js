@@ -19,10 +19,34 @@ const state = {
   editingIndex: null,
 };
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   renderLayout();
+  await applyConfig();
   bindSidebarEvents();
 });
+
+let appConfig = {};
+
+async function applyConfig() {
+  appConfig = await window.go.main.App.GetConfig();
+  if (appConfig.sidebar_width) {
+    document.getElementById('sidebar').style.width = appConfig.sidebar_width + 'px';
+  }
+  if (appConfig.last_database_path) {
+    const filename = appConfig.last_database_path.split(/[\\/]/).pop();
+    const btn = document.getElementById('load-last-btn');
+    btn.innerHTML = `🔄 Load Last <span style="font-size:0.7rem; opacity:0.7; display:block; overflow:hidden; text-overflow:ellipsis;">(${filename})</span>`;
+    btn.title = appConfig.last_database_path;
+  }
+}
+
+async function saveCurrentState() {
+  const sidebar = document.getElementById('sidebar');
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const sw = parseInt(sidebar.style.width) || 280;
+  await window.go.main.App.SaveWindowState(w, h, sw);
+}
 
 function renderLayout() {
   document.getElementById('app').innerHTML = `
@@ -30,6 +54,7 @@ function renderLayout() {
       <div class="sidebar-section-title">⚙️ Settings</div>
       <input type="text" id="db-path-input" placeholder="Path to .parquet file..." />
       <button id="browse-btn" class="full" style="margin-top: 6px;">📂 Browse</button>
+      <button id="load-last-btn" class="full secondary" style="margin-top: 6px;">🔄 Load Last</button>
       <div id="db-status" style="margin-top: 6px;"></div>
       <hr class="divider" />
       <div class="sidebar-section-title">Statistics</div>
@@ -110,6 +135,16 @@ function bindSidebarEvents() {
     }
   });
 
+  document.getElementById('load-last-btn').addEventListener('click', async () => {
+    const path = await window.go.main.App.GetLastDatabasePath();
+    if (path) {
+      dbInput.value = path;
+      await loadDatabase(path);
+    } else {
+      alert("No last database found.");
+    }
+  });
+
   document.getElementById('thumb-slider').addEventListener('input', (e) => {
     state.thumbnailSize = parseInt(e.target.value, 10);
     renderGallery();
@@ -174,13 +209,18 @@ function bindSidebarEvents() {
     }
   });
 
-  document.addEventListener('mouseup', () => {
+  document.addEventListener('mouseup', async () => {
     if (isResizing) {
       isResizing = false;
       resizer.classList.remove('active');
       document.body.style.cursor = 'default';
+      await saveCurrentState();
     }
   });
+
+  window.addEventListener('resize', debounce(async () => {
+    await saveCurrentState();
+  }, 500));
 }
 
 function showBanner(type, msg) {
@@ -197,6 +237,7 @@ async function loadDatabase(path) {
   if (err) { showBanner('error', '❌ ' + err); return; }
   state.dbPath = path;
   showBanner('success', '✓ Valid database file');
+  await applyConfig();
   await refreshStats();
   await fetchPage();
 }
@@ -303,8 +344,14 @@ async function renderGallery() {
     let rightHtml = `<div class="filename-box">🖼️ ${basename}</div>`;
     
     const dates = [];
-    if (entry.created_at) dates.push(`Created: ${new Date(entry.created_at).toLocaleString()}`);
-    if (entry.modified_at) dates.push(`Modified: ${new Date(entry.modified_at).toLocaleString()}`);
+    if (entry.created_at) {
+      const d = new Date(entry.created_at);
+      if (!isNaN(d)) dates.push(`Created: ${d.toLocaleString()}`);
+    }
+    if (entry.modified_at) {
+      const d = new Date(entry.modified_at);
+      if (!isNaN(d)) dates.push(`Modified: ${d.toLocaleString()}`);
+    }
     if (dates.length > 0) rightHtml += `<div class="timestamp-box">${dates.join(' · ')}</div>`;
 
     rightHtml += `<div class="image-meta-box last" id="meta-${i}">Loading meta...</div>`;

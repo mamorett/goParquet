@@ -82,6 +82,8 @@ button {
 button:hover { box-shadow: 0 0 0 2px var(--nord8); border-color: var(--nord8); background: rgba(136,192,208,0.1); color: var(--nord8); }
 button.primary { background: var(--nord9); color: var(--nord0); font-weight: 600; border-color: var(--nord9); }
 button.primary:hover { background: var(--nord8); border-color: var(--nord8); box-shadow: 0 0 0 2px rgba(136,192,208,0.4); }
+button.secondary { background: var(--nord3); color: var(--nord6); border-color: var(--nord3); }
+button.secondary:hover { background: var(--nord2); border-color: var(--nord2); box-shadow: 0 0 0 2px rgba(76,86,106,0.4); }
 button.success { background: rgba(163,190,140,0.2); border-color: var(--nord14); color: var(--nord14); }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 /* Full-width button */

@@ -17,10 +17,12 @@ var icon []byte
 
 func main() {
     app := NewApp()
+    cfg := app.GetConfig()
+
     err := wails.Run(&options.App{
         Title:     "goParquet",
-        Width:     1280,
-        Height:    900,
+        Width:     cfg.WindowWidth,
+        Height:    cfg.WindowHeight,
         MinWidth:  900,
         MinHeight: 600,
         AssetServer: &assetserver.Options{

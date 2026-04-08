@@ -10,8 +10,16 @@ export function GetAllSubdirs() {
   return window['go']['main']['App']['GetAllSubdirs']();
 }
 
+export function GetConfig() {
+  return window['go']['main']['App']['GetConfig']();
+}
+
 export function GetImageMeta(arg1) {
   return window['go']['main']['App']['GetImageMeta'](arg1);
+}
+
+export function GetLastDatabasePath() {
+  return window['go']['main']['App']['GetLastDatabasePath']();
 }
 
 export function GetPage(arg1) {
@@ -40,4 +48,8 @@ export function SaveDescription(arg1, arg2) {
 
 export function SaveTextFile(arg1, arg2) {
   return window['go']['main']['App']['SaveTextFile'](arg1, arg2);
+}
+
+export function SaveWindowState(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveWindowState'](arg1, arg2, arg3);
 }

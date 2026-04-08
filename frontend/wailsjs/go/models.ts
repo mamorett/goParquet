@@ -1,5 +1,23 @@
 export namespace main {
 	
+	export class Config {
+	    last_database_path: string;
+	    window_width: number;
+	    window_height: number;
+	    sidebar_width: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Config(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.last_database_path = source["last_database_path"];
+	        this.window_width = source["window_width"];
+	        this.window_height = source["window_height"];
+	        this.sidebar_width = source["sidebar_width"];
+	    }
+	}
 	export class DBStats {
 	    total_entries: number;
 	    images_found: number;

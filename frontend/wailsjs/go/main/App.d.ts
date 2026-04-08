@@ -6,7 +6,11 @@ export function GetAllPrompts():Promise<Array<string>>;
 
 export function GetAllSubdirs():Promise<Array<string>>;
 
+export function GetConfig():Promise<main.Config>;
+
 export function GetImageMeta(arg1:string):Promise<main.ImageMeta>;
+
+export function GetLastDatabasePath():Promise<string>;
 
 export function GetPage(arg1:main.FilterParams):Promise<main.PageResult>;
 
@@ -21,3 +25,5 @@ export function OpenFilePicker():Promise<string>;
 export function SaveDescription(arg1:string,arg2:string):Promise<string>;
 
 export function SaveTextFile(arg1:string,arg2:string):Promise<string>;
+
+export function SaveWindowState(arg1:number,arg2:number,arg3:number):Promise<void>;
