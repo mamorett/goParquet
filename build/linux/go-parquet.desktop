@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=goParquet
+Comment=Modern Parquet Dataset Viewer
+Exec=goParquet
+Icon=go-parquet
+Terminal=false
+Type=Application
+Categories=Development;Utility;
+StartupWMClass=goParquet
+Keywords=parquet;dataset;viewer;ml;data;

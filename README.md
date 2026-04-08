@@ -1,34 +1,85 @@
-# goParquet
+<p align="center">
+  <img src="build/appicon.png" width="128" alt="goParquet Logo">
+</p>
 
-A modern, high-performance desktop application for viewing and managing image datasets stored in **Apache Parquet** files. Built with [Wails](https://wails.io), Go, and Svelte/Vite.
+<h1 align="center">goParquet</h1>
 
-![goParquet Logo](logo.png)
+<p align="center">
+  <strong>A modern, high-performance desktop application for viewing and managing image datasets stored in Apache Parquet files.</strong>
+</p>
 
-## Features
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go">
+  <img src="https://img.shields.io/badge/Wails-000000?style=for-the-badge&logo=wails&logoColor=white" alt="Wails">
+  <img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite">
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
+</p>
 
-- **Parquet Integration**: Directly read and write metadata from `.parquet` files.
-- **Image Gallery**: Fast browsing of local images linked in your database.
-- **Advanced Filtering**: Filter by subdirectory, prompt, existence (found/missing), and full-text search.
-- **Metadata Viewer**: Real-time image metadata extraction (dimensions, aspect ratio, file size, megapixels).
-- **Description Editor**: Edit and save image descriptions back to the Parquet database.
-- **Statistics**: Overview of your dataset (total entries, unique prompts, date ranges, etc.).
-- **Cross-Platform**: Native look and feel on Linux and macOS.
+---
 
-## Prerequisites
+`goParquet` is designed for machine learning researchers and data scientists who need a fast, intuitive way to browse and curate massive image datasets indexed via Parquet. Built with Go for performance and Wails for a native desktop experience.
 
-### Local Development
-- **Go**: 1.21 or later
-- **Node.js**: 20.x or later
-- **NPM**: Latest version
-- **Wails CLI**: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
+## ✨ Features
 
-### Linux Dependencies (Ubuntu/Debian)
+- 📂 **Parquet Integration**: Directly read and write metadata from `.parquet` files with high-level schema support.
+- 🖼️ **Smart Image Gallery**: Ultra-fast browsing with on-the-fly thumbnail generation and caching.
+- 🔍 **Advanced Filtering**: Filter by subdirectory, prompt, existence (found/missing), and full-text search across multiple fields.
+- 📊 **Deep Metadata**: Real-time extraction of image dimensions, aspect ratio, file size, and megapixels.
+- ✍️ **Description Editor**: Edit image descriptions and save them directly back to the Parquet database.
+- 📈 **Dataset Statistics**: Instant overview of your dataset, including date ranges, unique prompts, and storage footprint.
+- 🖥️ **Cross-Platform**: Native look and feel on Linux and macOS with optimized GPU acceleration.
+
+## 🚀 Prerequisites
+
+Before you begin, ensure you have the following installed on your system.
+
+### 1. Go (Programming Language)
+`goParquet` requires **Go 1.22** or later.
+
+- **Linux (Ubuntu/Debian):**
+  ```bash
+  sudo apt install golang-go
+  ```
+- **macOS:**
+  ```bash
+  brew install go
+  ```
+- **Windows / Manual:**
+  Download and install from the [official Go website](https://go.dev/doc/install).
+
+### 2. Node.js & NPM
+Required for building the frontend.
+
+- **Linux:**
+  ```bash
+  sudo apt install nodejs npm
+  ```
+- **macOS:**
+  ```bash
+  brew install node
+  ```
+
+### 3. Wails CLI
+Wails is the framework used to build the desktop app.
+
+- **Install Wails:**
+  ```bash
+  go install github.com/wailsapp/wails/v2/cmd/wails@latest
+  ```
+- **Verify Installation:**
+  Run the following command to check if your system meets all requirements for Wails development:
+  ```bash
+  wails doctor
+  ```
+
+### 4. System Dependencies (Linux Only)
+For Ubuntu/Debian, you'll need the following libraries for the WebKit2GTK webview:
 ```bash
 sudo apt update
 sudo apt install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config
 ```
 
-## Getting Started
+## 🛠️ Getting Started
 
 ### 1. Clone the repository
 ```bash
@@ -36,52 +87,47 @@ git clone https://github.com/yourusername/goParquet.git
 cd goParquet
 ```
 
-### 2. Install dependencies
+### 2. Build and Install
+
+#### 🐧 Linux (Recommended)
+You can build and install the application locally for your user. This will correctly set up the application icon and enable "Keep in dock" support in your desktop environment (GNOME, KDE, Plank, etc.).
+
 ```bash
-# Frontend
-cd frontend && npm install && cd ..
-# Backend
-go mod download
+# This builds the app and installs it to ~/.local/bin
+make user-install
 ```
 
-### 3. Run in Development Mode
+#### 🍎 macOS
+```bash
+# Build the application bundle
+make build
+```
+The `.app` bundle will be located in `build/bin/`. You can move it to your `/Applications` folder manually.
+
+### 3. Development Mode
+To run the app in development mode with hot-reloading:
 ```bash
 wails dev
 ```
 
-## Building
+## 📖 Usage
 
-The project uses a `Makefile` to simplify the build process.
+### Launching the App
+Simply run the binary. You can select a Parquet file using the built-in file picker.
 
-### Local Build (Auto-detects your OS/Arch)
-```bash
-make build
-```
-The binary will be generated in `build/bin/`.
-
-### Native Compilation
-If you prefer using the Wails CLI directly:
-- **Linux**: `wails build -platform linux/amd64 -tags webkit2_41`
-- **macOS**: `wails build -platform darwin/arm64`
-
-## CI/CD & Releases
-
-This project uses **GitHub Actions** for automated builds and releases.
-
-- **Automated Builds**: Every time a new **Release** is published or created on GitHub, the workflow automatically builds binaries for:
-  - Linux (AMD64)
-  - Linux (ARM64)
-  - macOS (Apple Silicon)
-- **Release Assets**: Built binaries are automatically attached to the GitHub Release.
-
-## Usage
-
-You can launch the application and select a Parquet file via the UI, or launch it directly from the terminal with a database flag:
+### CLI Arguments
+You can also launch `goParquet` directly from the terminal and pre-load a specific database:
 
 ```bash
 ./goParquet --database path/to/your/data.parquet
 ```
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<p align="center">
+  Built with ❤️ using <a href="https://wails.io">Wails</a>
+</p>

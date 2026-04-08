@@ -31,6 +31,7 @@ func main() {
         Linux: &linux.Options{
             Icon:             icon,
             WebviewGpuPolicy: linux.WebviewGpuPolicyAlways,
+            ProgramName:      "goParquet",
         },
         Bind: []interface{}{
             app,
