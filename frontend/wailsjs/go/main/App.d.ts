@@ -12,7 +12,11 @@ export function GetImageMeta(arg1:string):Promise<main.ImageMeta>;
 
 export function GetLastDatabasePath():Promise<string>;
 
+export function GetOriginalSubdirs():Promise<Array<string>>;
+
 export function GetPage(arg1:main.FilterParams):Promise<main.PageResult>;
+
+export function GetPathOverride():Promise<{[key: string]: string}>;
 
 export function GetStats():Promise<main.DBStats>;
 
@@ -22,8 +26,12 @@ export function LoadDatabase(arg1:string):Promise<string>;
 
 export function OpenFilePicker():Promise<string>;
 
+export function ResolveImagePath(arg1:string):Promise<string>;
+
 export function SaveDescription(arg1:string,arg2:string):Promise<string>;
 
 export function SaveTextFile(arg1:string,arg2:string):Promise<string>;
 
 export function SaveWindowState(arg1:number,arg2:number,arg3:number):Promise<void>;
+
+export function SetPathOverride(arg1:string,arg2:string):Promise<string>;

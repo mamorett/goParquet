@@ -15,6 +15,9 @@ const state = {
   stats: null,
   allSubdirs: [],
   allPrompts: [],
+  allOriginalSubdirs: [],
+  selectedOldPrefix: '',
+  oldPrefixQuery: '',
   thumbnailSize: 300,
   editingIndex: null,
 };
@@ -28,15 +31,115 @@ window.addEventListener('DOMContentLoaded', async () => {
 let appConfig = {};
 
 async function applyConfig() {
-  appConfig = await window.go.main.App.GetConfig();
-  if (appConfig.sidebar_width) {
-    document.getElementById('sidebar').style.width = appConfig.sidebar_width + 'px';
+  try {
+    appConfig = await window.go.main.App.GetConfig();
+    if (appConfig.sidebar_width) {
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) sidebar.style.width = appConfig.sidebar_width + 'px';
+    }
+    if (appConfig.last_database_path) {
+      const filename = appConfig.last_database_path.split(/[\\/]/).pop();
+      const btn = document.getElementById('load-last-btn');
+      if (btn) {
+        btn.innerHTML = `🔄 Load Last <span style="font-size:0.7rem; opacity:0.7; display:block; overflow:hidden; text-overflow:ellipsis;">(${filename})</span>`;
+        btn.title = appConfig.last_database_path;
+      }
+    }
+    const override = await window.go.main.App.GetPathOverride();
+    state.selectedOldPrefix = (override && override.old) || '';
+    const newInp = document.getElementById('path-override-new');
+    if (newInp && override && override.new) newInp.value = override.new;
+    
+    const statusEl = document.getElementById('override-status');
+    if (statusEl && override && override.old && override.new) {
+      statusEl.innerHTML = `<div class="banner success">✓ Override active</div>`;
+    }
+
+    // Fetch original subdirs for the dropdown
+    state.allOriginalSubdirs = await window.go.main.App.GetOriginalSubdirs();
+    renderOldPrefixDropdown();
+  } catch (err) {
+    console.error("Error in applyConfig:", err);
   }
-  if (appConfig.last_database_path) {
-    const filename = appConfig.last_database_path.split(/[\\/]/).pop();
-    const btn = document.getElementById('load-last-btn');
-    btn.innerHTML = `🔄 Load Last <span style="font-size:0.7rem; opacity:0.7; display:block; overflow:hidden; text-overflow:ellipsis;">(${filename})</span>`;
-    btn.title = appConfig.last_database_path;
+}
+
+function renderOldPrefixDropdown() {
+  const query = state.oldPrefixQuery.toLowerCase();
+  const options = state.allOriginalSubdirs || [];
+  const filtered = options.filter(d => d.toLowerCase().includes(query));
+  
+  const container = document.getElementById('path-override-old-dropdown');
+  if (!container) return;
+  
+  renderSingleSelect('path-override-old-dropdown', filtered, state.selectedOldPrefix, 'Directory', (val) => {
+    state.selectedOldPrefix = val;
+    renderOldPrefixDropdown();
+  });
+}
+
+function renderSingleSelect(containerId, options, selectedValue, label, onChange) {
+  const container = document.getElementById(containerId);
+  const displayValue = selectedValue || `Select ${label}`;
+  let html = `
+    <button class="multi-select-toggle" title="${displayValue}">${displayValue} ▼</button>
+    <div class="multi-select-dropdown">
+  `;
+  options.forEach(opt => {
+    const active = opt === selectedValue ? 'selected' : '';
+    html += `
+      <div class="single-select-option ${active}" data-value="${opt.replace(/"/g, '&quot;')}">
+        ${opt}
+      </div>
+    `;
+  });
+  html += `</div>`;
+  container.innerHTML = html;
+
+  const btn = container.querySelector('.multi-select-toggle');
+  const dd = container.querySelector('.multi-select-dropdown');
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dd.classList.toggle('open');
+  });
+
+  dd.querySelectorAll('.single-select-option').forEach(el => {
+    el.addEventListener('click', () => {
+      const val = el.getAttribute('data-value');
+      onChange(val);
+      dd.classList.remove('open');
+    });
+  });
+}
+
+// Cache resolved paths per entry to avoid repeated IPC calls
+const resolvedPaths = {};
+async function getResolvedPath(originalPath) {
+  if (!(originalPath in resolvedPaths)) {
+    resolvedPaths[originalPath] = await window.go.main.App.ResolveImagePath(originalPath);
+  }
+  return resolvedPaths[originalPath];
+}
+
+async function applyPathOverride() {
+  const old = state.selectedOldPrefix;
+  const newP = document.getElementById('path-override-new').value.trim();
+  const err = await window.go.main.App.SetPathOverride(old, newP);
+  if (err) {
+    document.getElementById('override-status').innerHTML = `<div class="banner error">${err}</div>`;
+    return;
+  }
+  const statusEl = document.getElementById('override-status');
+  if (old && newP) {
+    statusEl.innerHTML = `<div class="banner success">✓ Override active</div>`;
+  } else {
+    statusEl.innerHTML = '';
+  }
+  // Clear cache
+  for (const key in resolvedPaths) delete resolvedPaths[key];
+
+  if (state.dbPath) {
+    await refreshStats();
+    await fetchPage();
   }
 }
 
@@ -56,6 +159,17 @@ function renderLayout() {
       <button id="browse-btn" class="full" style="margin-top: 6px;">📂 Browse</button>
       <button id="load-last-btn" class="full secondary" style="margin-top: 6px;">🔄 Load Last</button>
       <div id="db-status" style="margin-top: 6px;"></div>
+      <div class="sidebar-section-title" style="margin-top:12px;">🗂️ Path Override</div>
+      <label class="page-slider-label">Old prefix (in parquet)</label>
+      <div id="path-override-old-dropdown" class="multi-select-container"></div>
+      <input type="text" id="path-override-old-query" placeholder="Filter directories..." style="margin-top:4px;"/>
+      <label class="page-slider-label" style="margin-top:4px;">New prefix (on disk)</label>
+      <input type="text" id="path-override-new" placeholder="/new/path/prefix..." />
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px;">
+        <button id="apply-override-btn" class="primary">Apply</button>
+        <button id="clear-override-btn" class="secondary">Clear</button>
+      </div>
+      <div id="override-status" style="margin-top:4px;"></div>
       <hr class="divider" />
       <div class="sidebar-section-title">Statistics</div>
       <div id="stats-area"></div>
@@ -148,6 +262,22 @@ function bindSidebarEvents() {
     } else {
       alert("No last database found.");
     }
+  });
+
+  document.getElementById('apply-override-btn').addEventListener('click', applyPathOverride);
+
+  document.getElementById('clear-override-btn').addEventListener('click', async () => {
+    state.selectedOldPrefix = '';
+    state.oldPrefixQuery = '';
+    document.getElementById('path-override-old-query').value = '';
+    document.getElementById('path-override-new').value = '';
+    renderOldPrefixDropdown();
+    await applyPathOverride();
+  });
+
+  document.getElementById('path-override-old-query').addEventListener('input', (e) => {
+    state.oldPrefixQuery = e.target.value;
+    renderOldPrefixDropdown();
   });
 
   document.getElementById('thumb-slider').addEventListener('input', (e) => {
@@ -417,7 +547,7 @@ async function renderGallery() {
       `;
     }
 
-    rightHtml += `<div class="caption">📝 ${entry.description ? entry.description.length : 0} characters | Full path: ${escapeHtml(entry.image_path)}</div>`;
+    rightHtml += `<div class="caption" id="path-caption-${i}">📝 ${entry.description ? entry.description.length : 0} characters | Full path: ${escapeHtml(entry.image_path)}</div>`;
     rightCol.innerHTML = rightHtml;
 
     if (state.editingIndex === i) {
@@ -442,7 +572,8 @@ async function renderGallery() {
         flashButton(e.target, '✓ Copied!');
       });
       document.getElementById(`path-btn-${i}`).addEventListener('click', async (e) => {
-        await window.runtime.ClipboardSetText(entry.image_path || "");
+        const rp = await getResolvedPath(entry.image_path);
+        await window.runtime.ClipboardSetText(rp || "");
         flashButton(e.target, '✓ Copied!');
       });
       document.getElementById(`txt-btn-${i}`).addEventListener('click', async () => {
@@ -452,25 +583,34 @@ async function renderGallery() {
     }
 
     // Async load thumb & meta
-    window.go.main.App.GetThumbnail(entry.image_path, state.thumbnailSize).then(src => {
-      if (src) {
-        leftCol.innerHTML = `<img src="${src}" style="width:${state.thumbnailSize}px" />`;
-      } else {
-        leftCol.innerHTML = `<div class="banner error">Image Missing</div>`;
-      }
-    });
-
-    window.go.main.App.GetImageMeta(entry.image_path).then(meta => {
-      const metaEl = document.getElementById(`meta-${i}`);
-      if (meta && metaEl) {
-        if (!meta.exists) {
-          metaEl.innerHTML = 'File does not exist on disk';
-        } else if (meta.width > 0) {
-          metaEl.innerHTML = `📐 ${meta.width}x${meta.height} (${meta.megapixels.toFixed(1)} MP) · ⬛ Ratio: ${meta.aspect_ratio} · 💾 ${meta.file_size_kb.toFixed(1)} KB`;
-        } else {
-          metaEl.innerHTML = `💾 ${meta.file_size_kb.toFixed(1)} KB (Not an image)`;
+    getResolvedPath(entry.image_path).then(resolvedPath => {
+      if (resolvedPath !== entry.image_path) {
+        const captionEl = document.getElementById(`path-caption-${i}`);
+        if (captionEl) {
+          captionEl.innerHTML = `📝 ${entry.description ? entry.description.length : 0} characters | Full path: ${escapeHtml(entry.image_path)}<br><span style="color:var(--nord14)">↳ Overridden to: ${escapeHtml(resolvedPath)}</span>`;
         }
       }
+
+      window.go.main.App.GetThumbnail(resolvedPath, state.thumbnailSize).then(src => {
+        if (src) {
+          leftCol.innerHTML = `<img src="${src}" style="width:${state.thumbnailSize}px" />`;
+        } else {
+          leftCol.innerHTML = `<div class="banner error">Image Missing</div>`;
+        }
+      });
+
+      window.go.main.App.GetImageMeta(resolvedPath).then(meta => {
+        const metaEl = document.getElementById(`meta-${i}`);
+        if (meta && metaEl) {
+          if (!meta.exists) {
+            metaEl.innerHTML = 'File does not exist on disk';
+          } else if (meta.width > 0) {
+            metaEl.innerHTML = `📐 ${meta.width}x${meta.height} (${meta.megapixels.toFixed(1)} MP) · ⬛ Ratio: ${meta.aspect_ratio} · 💾 ${meta.file_size_kb.toFixed(1)} KB`;
+          } else {
+            metaEl.innerHTML = `💾 ${meta.file_size_kb.toFixed(1)} KB (Not an image)`;
+          }
+        }
+      });
     });
   }
 }

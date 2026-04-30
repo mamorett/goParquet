@@ -529,3 +529,20 @@ footer {
 .multi-select-option:hover {
   background: var(--nord2);
 }
+
+.single-select-option {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--nord4);
+}
+
+.single-select-option:hover {
+  background: var(--nord2);
+}
+
+.single-select-option.selected {
+  background: var(--nord9);
+  color: var(--nord0);
+  font-weight: 600;
+}

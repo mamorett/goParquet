@@ -36,6 +36,13 @@ frontend: sync-assets
 	@echo "Building frontend..."
 	cd frontend && npm install && npm run build
 
+# Clean up build artifacts
+clean:
+	@echo "Cleaning up build artifacts..."
+	rm -rf build/bin/*
+	rm -rf frontend/dist
+	rm -rf frontend/node_modules
+
 # Linux User-Local Installation (No sudo required)
 user-install: build
 	@if [ "$(OS)" = "linux" ]; then \

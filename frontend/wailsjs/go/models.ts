@@ -5,6 +5,8 @@ export namespace main {
 	    window_width: number;
 	    window_height: number;
 	    sidebar_width: number;
+	    path_override_old: string;
+	    path_override_new: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -16,6 +18,8 @@ export namespace main {
 	        this.window_width = source["window_width"];
 	        this.window_height = source["window_height"];
 	        this.sidebar_width = source["sidebar_width"];
+	        this.path_override_old = source["path_override_old"];
+	        this.path_override_new = source["path_override_new"];
 	    }
 	}
 	export class DBStats {

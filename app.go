@@ -80,10 +80,12 @@ type PageResult struct {
 }
 
 type App struct {
-	ctx     context.Context
-	dbPath  string
-	entries []Entry
-	mu      sync.RWMutex
+	ctx             context.Context
+	dbPath          string
+	entries         []Entry
+	mu              sync.RWMutex
+	pathOverrideOld string
+	pathOverrideNew string
 }
 
 type Config struct {
@@ -91,6 +93,15 @@ type Config struct {
 	WindowWidth      int    `json:"window_width"`
 	WindowHeight     int    `json:"window_height"`
 	SidebarWidth     int    `json:"sidebar_width"`
+	PathOverrideOld  string `json:"path_override_old"`
+	PathOverrideNew  string `json:"path_override_new"`
+}
+
+func (a *App) resolvePath(p string) string {
+	if a.pathOverrideOld != "" && strings.HasPrefix(p, a.pathOverrideOld) {
+		return a.pathOverrideNew + p[len(a.pathOverrideOld):]
+	}
+	return p
 }
 
 func (a *App) getConfigPath() string {
@@ -126,6 +137,37 @@ func (a *App) SaveWindowState(width, height, sidebarWidth int) {
 	a.saveConfig(cfg)
 }
 
+func (a *App) ResolveImagePath(imagePath string) string {
+	return a.resolvePath(imagePath)
+}
+
+func (a *App) SetPathOverride(oldPrefix, newPrefix string) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	oldPrefix = strings.TrimRight(oldPrefix, "/")
+	newPrefix = strings.TrimRight(newPrefix, "/")
+
+	a.pathOverrideOld = oldPrefix
+	a.pathOverrideNew = newPrefix
+
+	cfg := a.GetConfig()
+	cfg.PathOverrideOld = oldPrefix
+	cfg.PathOverrideNew = newPrefix
+	a.saveConfig(cfg)
+
+	return ""
+}
+
+func (a *App) GetPathOverride() map[string]string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return map[string]string{
+		"old": a.pathOverrideOld,
+		"new": a.pathOverrideNew,
+	}
+}
+
 func (a *App) GetLastDatabasePath() string {
 	return a.GetConfig().LastDatabasePath
 }
@@ -134,6 +176,9 @@ func NewApp() *App { return &App{} }
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	cfg := a.GetConfig()
+	a.pathOverrideOld = cfg.PathOverrideOld
+	a.pathOverrideNew = cfg.PathOverrideNew
 	// Parse --database flag from os.Args
 	for i, arg := range os.Args {
 		if (arg == "--database" || arg == "--db") && i+1 < len(os.Args) {
@@ -219,6 +264,8 @@ func (a *App) LoadDatabase(path string) string {
 	a.dbPath = path
 	cfg := a.GetConfig()
 	cfg.LastDatabasePath = path
+	a.pathOverrideOld = cfg.PathOverrideOld
+	a.pathOverrideNew = cfg.PathOverrideNew
 	a.saveConfig(cfg)
 	return ""
 }
@@ -250,7 +297,7 @@ func (a *App) GetStats() DBStats {
 	firstTime := true
 
 	for _, e := range a.entries {
-		if _, err := os.Stat(e.ImagePath); err == nil {
+		if _, err := os.Stat(a.resolvePath(e.ImagePath)); err == nil {
 			stats.ImagesFound++
 		} else {
 			stats.ImagesMissing++
@@ -298,12 +345,33 @@ func (a *App) GetAllSubdirs() []string {
 
 	dirMap := make(map[string]bool)
 	for _, e := range a.entries {
+		dir := filepath.Dir(a.resolvePath(e.ImagePath))
+		if dir != "." && dir != "/" {
+			dirMap[dir] = true
+		}
+	}
+	var dirs = []string{}
+	for d := range dirMap {
+		dirs = append(dirs, d)
+	}
+	sort.Slice(dirs, func(i, j int) bool {
+		return dirs[i] > dirs[j] // reverse alpha
+	})
+	return dirs
+}
+
+func (a *App) GetOriginalSubdirs() []string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	dirMap := make(map[string]bool)
+	for _, e := range a.entries {
 		dir := filepath.Dir(e.ImagePath)
 		if dir != "." && dir != "/" {
 			dirMap[dir] = true
 		}
 	}
-	var dirs []string
+	var dirs = []string{}
 	for d := range dirMap {
 		dirs = append(dirs, d)
 	}
@@ -321,7 +389,7 @@ func (a *App) GetAllPrompts() []string {
 	for _, e := range a.entries {
 		pMap[e.Prompt] = true
 	}
-	var ps []string
+	var ps = []string{}
 	for p := range pMap {
 		ps = append(ps, p)
 	}
@@ -399,7 +467,7 @@ func (a *App) GetPage(params FilterParams) PageResult {
 	for _, e := range a.entries {
 		// 1. Existence filter
 		if params.ExistenceFilter == "found" || params.ExistenceFilter == "missing" {
-			_, err := os.Stat(e.ImagePath)
+			_, err := os.Stat(a.resolvePath(e.ImagePath))
 			exists := err == nil
 			if params.ExistenceFilter == "found" && !exists {
 				continue
@@ -410,7 +478,7 @@ func (a *App) GetPage(params FilterParams) PageResult {
 		}
 
 		// 2. Subdirectory filter
-		dir := filepath.ToSlash(filepath.Dir(e.ImagePath))
+		dir := filepath.ToSlash(filepath.Dir(a.resolvePath(e.ImagePath)))
 		if len(params.SelectedSubdirs) > 0 {
 			matched := false
 			for d := range selSubdirs {
@@ -516,16 +584,16 @@ func (a *App) GetPage(params FilterParams) PageResult {
 	allDirsMap := make(map[string]bool)
 	allPromptsMap := make(map[string]bool)
 	for _, e := range filtered {
-		allDirsMap[filepath.ToSlash(filepath.Dir(e.ImagePath))] = true
+		allDirsMap[filepath.ToSlash(filepath.Dir(a.resolvePath(e.ImagePath)))] = true
 		allPromptsMap[e.Prompt] = true
 	}
-	var allDirs []string
+	var allDirs = []string{}
 	for d := range allDirsMap {
 		allDirs = append(allDirs, d)
 	}
 	sort.Strings(allDirs)
 
-	var allPrompts []string
+	var allPrompts = []string{}
 	for p := range allPromptsMap {
 		allPrompts = append(allPrompts, p)
 	}

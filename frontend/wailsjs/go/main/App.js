@@ -22,8 +22,16 @@ export function GetLastDatabasePath() {
   return window['go']['main']['App']['GetLastDatabasePath']();
 }
 
+export function GetOriginalSubdirs() {
+  return window['go']['main']['App']['GetOriginalSubdirs']();
+}
+
 export function GetPage(arg1) {
   return window['go']['main']['App']['GetPage'](arg1);
+}
+
+export function GetPathOverride() {
+  return window['go']['main']['App']['GetPathOverride']();
 }
 
 export function GetStats() {
@@ -42,6 +50,10 @@ export function OpenFilePicker() {
   return window['go']['main']['App']['OpenFilePicker']();
 }
 
+export function ResolveImagePath(arg1) {
+  return window['go']['main']['App']['ResolveImagePath'](arg1);
+}
+
 export function SaveDescription(arg1, arg2) {
   return window['go']['main']['App']['SaveDescription'](arg1, arg2);
 }
@@ -52,4 +64,8 @@ export function SaveTextFile(arg1, arg2) {
 
 export function SaveWindowState(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveWindowState'](arg1, arg2, arg3);
+}
+
+export function SetPathOverride(arg1, arg2) {
+  return window['go']['main']['App']['SetPathOverride'](arg1, arg2);
 }
